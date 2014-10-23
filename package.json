@@ -1,0 +1,32 @@
+{
+  "name": "sget",
+  "version": "0.1.0",
+  "description": "Async / Sync read line for Node.",
+  "main": "sget.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bucaran/sget.git"
+  },
+  "keywords": [
+    "sget",
+    "keyboard",
+    "stdin",
+    "input",
+    "standard input",
+    "gets",
+    "scanf"
+  ],
+  "author": "Jorge Bucaran",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bucaran/sget/issues"
+  },
+  "homepage": "https://github.com/bucaran/sget",
+  "devDependencies": {
+    "gulp": "^3.8.8",
+    "gulp-jasmine": "^1.0.1"
+  }
+}
