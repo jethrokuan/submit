@@ -32,7 +32,7 @@ var age = sget('How old are you?');
 ```sh
 ./test.js
 ```
-If the above fails, you may need to give execute permissions to the file owner, just run `chmod u+x test.js`. More info [here][chmod].
+If the above fails, you may need to give execute permissions to the file owner, just run `chmod u+x test.js`. Click [here][chmod] for more info.
 
 ## Help
 
