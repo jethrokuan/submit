@@ -17,15 +17,13 @@ Reads a line from the [standard input][stdin] synchronously if no callback is sp
 ```js
 var sget = require('sget');
 
-sget('How old are you?', function(data) {
-  // Do something with data
+var something = sget('Say something. I\'ll wait.');
+console.log('You said', something);
+
+sget('Leave word and you will be heard.', function(data) {
+  console.log('I heard you said', data);
 });
-
-// Optionally set the buffer size when reading sync.
-sget.bufferSize = 16;
-
-var age = sget('How old are you?');
-// Do something with age.
+console.log('\nThis test is not over.');
 ```
 
 ## Test
