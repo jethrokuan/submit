@@ -17,7 +17,6 @@ Reads a line from the [standard input][stdin] synchronously if no callback is sp
 ```js
 var sget = require('sget');
 
-var sget = require('./sget');
 var something = sget('Say something. I\'ll wait.');
 console.log('You said', something);
 
