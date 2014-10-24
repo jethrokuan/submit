@@ -23,6 +23,7 @@ var sget = module.exports = function(prompt, callback) {
     if (!win32()) fs.closeSync(fd);
     return bytes;
   };
+  prompt = prompt || '';
   if (callback) {
     var rl = require('readline').createInterface(
       process.stdin, process.stdout);
