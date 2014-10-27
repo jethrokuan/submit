@@ -6,14 +6,15 @@
  * @copyright (c) 2014 Jorge Bucaran
  * @license MIT
  */
-var fs = require('fs');
+var fs = require('fs'),
+    rl = require('readline');
 /**
  * Read a line from stdin sync. If callback is undefined reads it async.
  *
- * @param {String} prompt Message to log before reading stdin.
+ * @param {String} message Message to log before reading stdin.
  * @param {Function} callback If specified, reads the stdin async.
  */
-var sget = module.exports = function(prompt, callback) {
+var sget = module.exports = function(message, callback) {
   win32 = function() {
     return ('win32' === process.platform);
   },
@@ -23,18 +24,17 @@ var sget = module.exports = function(prompt, callback) {
     if (!win32()) fs.closeSync(fd);
     return bytes;
   };
-  prompt = prompt || '';
+  message = message || '';
   if (callback) {
-    var rl = require('readline').createInterface(
-      process.stdin, process.stdout);
-    rl.question(prompt, function(data) {
+    var prompt = rl.createInterface(process.stdin, process.stdout);
+    prompt.question(message, function(data) {
+      prompt.close();
       callback(data);
-      rl.close();
     });
   } else {
     return (function(buffer) {
       try {
-        console.log(prompt);
+        console.log(message);
         return buffer.toString(null, 0, readSync(buffer));
       } catch (e) {
         throw e;
