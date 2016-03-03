@@ -2,7 +2,7 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
     switch "$name"
         case -h --help
             printf "Usage: fisher submit [name desc tags url] [--help]\n\n"
-            printf "    -h --help      Show usage help"
+            printf "    -h --help      Show usage help\n"
             return
     end
 
@@ -16,7 +16,7 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
 
     function __submit_cleanup -a path
         if test ! -z "$path" -a -d "$path"
-            rm -rf $path
+            command rm -rf $path
         end
         functions -e __submit_cleanup __submit_run
     end
@@ -52,7 +52,7 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
     end
 
     if test -z "$tags"
-        set tags "DEMO"
+        set tags "$name"
     end
 
 
@@ -76,9 +76,9 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
 
     if test -z "$url"
         set url "https://github.com/$gh_user/$name"
-        printf "%s\n" "submit: I need the name of a plugin to submit." > $stderr
-        __submit_cleanup
-        return 1
+        # printf "%s\n" "submit: I need the URL of the plugin to submit." > $stderr
+        # __submit_cleanup
+        # return 1
     end
 
 
@@ -103,7 +103,7 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
     if not __submit_run "Forking the index with your GitHub account" "
         curl -sX POST -u \"$gh_user:$gh_pass\" $gh_forks > /dev/null
         "
-        printf "%s\n" "submit: I couldn't fork the index with your GitHub account."
+        printf "%s\n" "submit: I couldn't fork the index with your GitHub account." > $stderr
         __submit_cleanup
         return 1
     end
@@ -111,19 +111,77 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
     set -l path (mktemp -dt index.XXX)
 
     if test ! -d "$path"
-        echo ERROR
+        printf "%s\n" "submit: I couldn't create temporary directory for this operation." > $stderr
         __submit_cleanup "$path"
         return 1
     end
 
-    if not __submit_run "Adding $name to the index" "
+    if not __submit_run "Cloning your copy of the index" "
         while not git clone https://github.com/$gh_user/fisher-index $path --quiet
-            printf 'Please wait a little more...\n'
+            printf '\rPlease wait a little more...\n' > $stderr
         end
+    "
+        printf "%s\n" "submit: I couldn't clone your copy of the index." > $stderr
+        __submit_cleanup "$path"
+        return 1
+    end
 
+    pushd $path
+    printf "\n%s\n%s\n%s\n%s\n%s\n" "$name" "$url" "$info" "$tags" "$gh_user" >> index
+
+    awk -v FS='\n' -v RS='' -v OFS=';' '
+
+        function qsort(A, L, R, pivot,   j, i, t) {
+            pivot = j = i = t
+
+            if (L >= R) {
+                return
+            }
+
+            pivot = L
+            i = L
+            j = R
+
+            while (i < j) {
+                while (A[i] <= A[pivot] && i < R) i++
+                while (A[j] > A[pivot]) j--
+                if (i < j) {
+                    t = A[i]
+                    A[i] = A[j]
+                    A[j] = t
+                }
+            }
+
+            t = A[pivot]
+            A[pivot] = A[j]
+            A[j] = t
+
+            qsort(A, L, j - 1)
+            qsort(A, j + 1, R)
+        }
+
+        {
+            A[NR] = $1
+            K[$1] = $0
+        }
+
+        END {
+            qsort(A, 1, NR)
+
+            for (i = 1; i < NR; i++) {
+                printf("%s\n\n", K[A[i]])
+            }
+
+            printf("%s\n", K[A[NR]])
+
+        }
+    ' index > _index
+
+    command mv -f _index index
+
+
+    if not __submit_run "Adding $name to the index" "
         pushd $path
-        printf '\n%s\n%s\n%s\n%s\n%s\n' '$name' '$url' '$info' '$tags' '$gh_user' >> index
-
         git add --all
         git commit -m 'Add $name.' --quiet
         git remote remove origin ^ /dev/null
@@ -131,10 +189,12 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
         git remote add upstream https://github.com/$gh_org/fisher-index
         git push origin master --quiet
     "
-        printf "\n%s\n" "submit: I couldn't add $name to the index."
+        printf "\n%s\n" "submit: I couldn't add $name to the index." > $stderr
         __submit_cleanup "$path"
         return 1
     end
+
+    popd
 
     set -l body "Add $name"
 
@@ -151,7 +211,7 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
             }
         }
     '
-        printf "%s\n" "submit: I couldn't create a pull request for $name."
+        printf "%s\n" "submit: I couldn't create a pull request for $name." > $stderr
         __submit_cleanup "$path"
         return 1
     end
