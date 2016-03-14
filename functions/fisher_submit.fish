@@ -1,122 +1,113 @@
 function fisher_submit -d "Submit a plugin to the index" -a name info tags url
-    switch "$name"
-        case -h --help
-            printf "Usage: fisher submit [name desc tags url] [--help]\n\n"
-            printf "    -h --help      Show usage help\n"
-            return
+  set -l stderr /dev/stderr
+  
+  switch "$name"
+    case -h --help
+      printf "Usage: fisher submit [name desc tags url] [--help]\n\n"
+      printf "    -h --help      Show usage help\n"
+      return
+  end
+
+  function __submit_run -a msg command
+    if not spin "$command" -f "\r @ $msg\r\n" --error=/dev/null
+      printf " × $msg\n"
+      return 1
     end
+    printf " ✓ $msg\n"
+  end
 
-    function __submit_run -a msg command
-        if not spin "$command" -f "\r @ $msg\r\n" --error=/dev/null
-            printf " × $msg\n"
-            return 1
-        end
-        printf " ✓ $msg\n"
+  function __submit_cleanup -a path
+    if test ! -z "$path" -a -d "$path"
+      command rm -rf $path
     end
+    functions -e __submit_cleanup __submit_run
+  end
 
-    function __submit_cleanup -a path
-        if test ! -z "$path" -a -d "$path"
-            command rm -rf $path
-        end
-        functions -e __submit_cleanup __submit_run
+  set -l gh_org fisherman
+  set -l gh_repos https://api.github.com/repos
+  set -l gh_forks $gh_repos/$gh_org/fisher-index/forks
+  set -l gh_pulls $gh_repos/$gh_org/fisher-index/pulls
+
+  if test -z "$name"
+    if test ! "$PWD" = ~
+      set name (pwd | __fisher_name)
     end
-
-
-
-    set -l stderr /dev/stderr
-
-    set -l gh_org fisherman
-    set -l gh_repos https://api.github.com/repos
-    set -l gh_forks $gh_repos/$gh_org/fisher-index/forks
-    set -l gh_pulls $gh_repos/$gh_org/fisher-index/pulls
-
-
-
-
-
-    if test -z "$name"
-        if test "$PWD" = ~
-            printf "%s\n" "submit: I need the name of a plugin to submit." > $stderr
-            __submit_cleanup
-            return 1
-        end
-
-        set name (pwd | __fisher_name)
+    get -p "name ($name): " | read name2
+    if test ! -z $name2
+      set name $name2
     end
+  end
 
+  if test -z "$name"
+    printf "%s\n" "submit: I need the name of a plugin to submit." > $stderr
+    __submit_cleanup
+    return 1
+  end
 
-
-
-    if test -z "$info"
-        set info "$name plugin"
+  if test -z "$info"
+    set info "$name plugin"
+    get -p "Description ($info):" | read info2
+    if test ! -z $info2
+      set info $info2
     end
+  end
 
-    if test -z "$tags"
-        set tags "$name"
-    end
+  if test -z "$tags"
+    get -p "Tags (space separated): " | read tags
+  end
 
+  set -l gh_user (git config --get github.user)
 
+  if test -z "$gh_user"
+    set gh_user "$GITHUB_USERNAME"
+  end
 
-    set -l gh_user (git config --get github.user)
+  if test -z "$gh_user"
+    get -p "Enter your GitHub username:" | read gh_user
+  end
 
-    if test -z "$gh_user"
-        set gh_user "$GITHUB_USERNAME"
-    end
+  if test -z "$gh_user"
+    printf "%s\n" "submit: I need your GitHub user name to continue." > $stderr
+    __submit_cleanup
+    return 1    
+  end
 
-    if test -z "$gh_user"
-        get -p "Enter your GitHub username:" | read gh_user
-    end
+  if test -z "$url"
+    set url "https://github.com/$gh_user/$name"
+    # printf "%s\n" "submit: I need the URL of the plugin to submit." > $stderr
+    # __submit_cleanup
+    # return 1
+  end
 
-    if test -z "$gh_user"
-        printf "%s\n" "submit: I need your GitHub user name to continue." > $stderr
-        __submit_cleanup
-        return 1
-    end
+  set gh_pass "$GITHUB_ACCESS_TOKEN"
 
+  if test -z "$gh_pass"
+    set gh_pass (git config --get github.password)
+  end
 
-    if test -z "$url"
-        set url "https://github.com/$gh_user/$name"
-        # printf "%s\n" "submit: I need the URL of the plugin to submit." > $stderr
-        # __submit_cleanup
-        # return 1
-    end
+  if test -z "$gh_pass"
+    get -sp "Enter password or access token for '$gh_user':" | read gh_pass     
+  end
 
+  if test -z "$gh_pass"
+    printf "%s\n" "submit: I need your GitHub password or access token to continue." > $stderr
+    __submit_cleanup
+    return 1
+  end
 
+  if not __submit_run "Forking the index with your GitHub account" "curl -sX POST -u \"$gh_user:$gh_pass\" $gh_forks > /dev/null"
+    printf "%s\n" "submit: I couldn't fork the index with your GitHub account." > $stderr
+    __submit_cleanup
+    return 1
+  end
 
-    set gh_pass "$GITHUB_ACCESS_TOKEN"
+  set -l path (mktemp -dt index.XXX)
+  if test ! -d "$path"
+    printf "%s\n" "submit: I couldn't create temporary directory for this operation." > __submit_cleanup "$path"
+    return 1
+  end
 
-    if test -z "$gh_pass"
-        set gh_pass (git config --get github.password)
-    end
-
-    if test -z "$gh_pass"
-        get -sp "Enter password or access token for '$gh_user':" | read gh_pass
-    end
-
-    if test -z "$gh_pass"
-        printf "%s\n" "submit: I need your GitHub password or access token to continue." > $stderr
-        __submit_cleanup
-        return 1
-    end
-
-
-    if not __submit_run "Forking the index with your GitHub account" "
-        curl -sX POST -u \"$gh_user:$gh_pass\" $gh_forks > /dev/null
-        "
-        printf "%s\n" "submit: I couldn't fork the index with your GitHub account." > $stderr
-        __submit_cleanup
-        return 1
-    end
-
-    set -l path (mktemp -dt index.XXX)
-
-    if test ! -d "$path"
-        printf "%s\n" "submit: I couldn't create temporary directory for this operation." > $stderr
-        __submit_cleanup "$path"
-        return 1
-    end
-
-    if not __submit_run "Cloning your copy of the index" "
+  if not __submit_run "Cloning your copy of the index" "
         while not git clone https://github.com/$gh_user/fisher-index $path --quiet
             printf '\rPlease wait a little more...\n' > $stderr
         end
@@ -133,8 +124,7 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
 
     command mv -f _index index
 
-
-    if not __submit_run "Adding $name to the index" "
+    set -l add_cmd "
         pushd $path
         git add --all
         git commit -m 'Add $name.' --quiet
@@ -143,6 +133,23 @@ function fisher_submit -d "Submit a plugin to the index" -a name info tags url
         git remote add upstream https://github.com/$gh_org/fisher-index
         git push origin master --quiet
     "
+
+    if test ! -z "$SUBMIT_METHOD"
+      if test "$SUBMIT_METHOD" = "ssh"
+        set add_cmd "
+        pushd $path
+        git add --all
+        git commit -m 'Add $name.' --quiet
+        git remote remove origin ^ /dev/null
+        git remote add origin git@github.com:$gh_user/fisher-index.git
+        git remote add upstream https://github.com/$gh_org/fisher-index
+        git push origin master --quiet
+    "
+      end
+    end
+
+
+    if not __submit_run "Adding $name to the index" $add_cmd
         printf "\n%s\n" "submit: I couldn't add $name to the index." > $stderr
         __submit_cleanup "$path"
         return 1
